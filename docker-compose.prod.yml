@@ -1,0 +1,68 @@
+services:
+  postgres:
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    restart: unless-stopped
+    networks:
+      - control_plane
+    mem_limit: 1g
+    cpus: 1.0
+    security_opt:
+      - no-new-privileges:true
+
+  redis:
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+    command: ["sh", "-c", "exec redis-server --appendonly yes --requirepass \"$$REDIS_PASSWORD\""]
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli --no-auth-warning -a \"$$REDIS_PASSWORD\" ping | grep -q PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+    networks:
+      - control_plane
+    mem_limit: 256m
+    cpus: 0.5
+    security_opt:
+      - no-new-privileges:true
+
+  api:
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      REDIS_URL: ${REDIS_URL:?REDIS_URL is required}
+      OPERATOR_API_TOKEN: ${OPERATOR_API_TOKEN:?OPERATOR_API_TOKEN is required}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:?CORS_ALLOWED_ORIGINS is required}
+      SANDBOX_ENABLED: ${SANDBOX_ENABLED:-true}
+      SANDBOX_IMAGE: ${SANDBOX_IMAGE:-python:3.12-alpine}
+      SANDBOX_TIMEOUT_SECONDS: ${SANDBOX_TIMEOUT_SECONDS:-20}
+      TELEMETRY_INTERVAL_SECONDS: ${TELEMETRY_INTERVAL_SECONDS:-1.0}
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 768m
+    cpus: 1.0
+    pids_limit: 256
+    healthcheck:
+      test: ["CMD", "python", "-c", "from urllib.request import urlopen; assert urlopen('http://127.0.0.1:8000/health', timeout=3).status == 200"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - control_plane
+
+networks:
+  control_plane:
+    internal: true

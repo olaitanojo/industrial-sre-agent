@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Autonomous Industrial Site Reliability Agent live control plane">
+  <title>Industrial SRE Agent</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header>
+    <div>
+      <p class="eyebrow">CONTROL PLANE / REFINERY SIMULATION</p>
+      <h1>Autonomous Industrial SRE Agent</h1>
+    </div>
+    <div class="connection"><span id="connection-dot"></span><span id="connection-status">Connecting</span></div>
+  </header>
+  <main>
+    <section class="hero panel">
+      <div>
+        <p class="eyebrow">CHAOS ENGINEERING</p>
+        <h2>Exercise the remediation loop</h2>
+        <p>Injects a critical pump anomaly, creates an incident, and streams every structured graph transition.</p>
+      </div>
+      <button id="crisis-button">Trigger Crisis</button>
+    </section>
+    <section class="metrics">
+      <article class="panel metric"><span>Vibration</span><strong id="vibration">--</strong><small>mm/s</small></article>
+      <article class="panel metric"><span>Flow</span><strong id="flow">--</strong><small>m³/h</small></article>
+      <article class="panel metric"><span>Temperature</span><strong id="temperature">--</strong><small>°C</small></article>
+      <article class="panel metric"><span>Pressure</span><strong id="pressure">--</strong><small>bar</small></article>
+    </section>
+    <section class="grid">
+      <article class="panel">
+        <p class="eyebrow">CYCLIC LANGGRAPH EXECUTION</p>
+        <ol id="matrix" class="matrix">
+          <li data-stage="Idle">Idle</li>
+          <li data-stage="AnomalyDetected">Anomaly Detected</li>
+          <li data-stage="RootCauseAnalysis">Root Cause Analysis</li>
+          <li data-stage="MitigationDrafting">Mitigation Drafting</li>
+          <li data-stage="SandboxedVerification">Sandboxed Verification</li>
+          <li data-stage="FinalDeploy">Final Deploy</li>
+        </ol>
+      </article>
+      <article class="panel">
+        <p class="eyebrow">AGENT THOUGHT STREAM</p>
+        <div id="thought-stream" class="log" aria-live="polite"></div>
+      </article>
+    </section>
+    <section class="grid">
+      <article class="panel">
+        <p class="eyebrow">SANDBOX TERMINAL</p>
+        <pre id="sandbox-output" class="terminal">Waiting for verification output…</pre>
+      </article>
+      <article class="panel">
+        <p class="eyebrow">INCIDENT STATUS</p>
+        <div id="incident-status" class="incident">No active incident.</div>
+      </article>
+    </section>
+  </main>
+  <script src="/static/app.js"></script>
+</body>
+</html>

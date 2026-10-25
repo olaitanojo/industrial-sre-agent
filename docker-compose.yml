@@ -1,0 +1,62 @@
+services:
+  postgres:
+    image: timescale/timescaledb:2.18.2-pg16
+    environment:
+      POSTGRES_DB: industrial_sre
+      POSTGRES_USER: industrial
+      POSTGRES_PASSWORD: industrial_dev_password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U industrial -d industrial_sre"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - control_plane
+
+  redis:
+    image: redis:7.4-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - redis_data:/data
+    networks:
+      - control_plane
+
+  api:
+    build:
+      context: ./backend
+    environment:
+      DATABASE_URL: postgresql+asyncpg://industrial:industrial_dev_password@postgres:5432/industrial_sre
+      REDIS_URL: redis://redis:6379/0
+      SANDBOX_ENABLED: "true"
+      SANDBOX_IMAGE: python:3.12-alpine
+      TELEMETRY_INTERVAL_SECONDS: "1.0"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # The only component allowed to create sandbox containers. Sandboxes remain
+    # networkless, non-privileged, read-only, and resource constrained.
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - control_plane
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  control_plane:
+    driver: bridge
+    internal: true

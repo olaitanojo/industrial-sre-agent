@@ -1,0 +1,145 @@
+name: Production deployment
+
+on:
+  push:
+    branches:
+      - main
+      - master
+
+permissions:
+  contents: read
+
+concurrency:
+  group: industrial-sre-agent-production
+  cancel-in-progress: false
+
+jobs:
+  frontend:
+    name: Deploy Next.js frontend to Vercel
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: frontend
+    environment: production
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      NEXT_PUBLIC_API_URL: ${{ secrets.PRODUCTION_API_URL }}
+      NEXT_PUBLIC_WS_URL: ${{ secrets.PRODUCTION_WS_URL }}
+      OPERATOR_API_TOKEN: ${{ secrets.OPERATOR_API_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Pull production Vercel settings
+        run: vercel pull --yes --environment=production
+
+      - name: Build production artifact
+        run: vercel build --prod
+
+      - name: Deploy prebuilt production artifact
+        run: vercel deploy --prebuilt --prod --yes
+
+  backend:
+    name: Deploy FastAPI control plane to Linux
+    runs-on: ubuntu-24.04
+    environment: production
+    env:
+      PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+      PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
+      PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
+      PROD_SSH_KNOWN_HOSTS: ${{ secrets.PROD_SSH_KNOWN_HOSTS }}
+      PROD_DEPLOY_PATH: ${{ secrets.PROD_DEPLOY_PATH }}
+      PROD_BACKEND_ENV_B64: ${{ secrets.PROD_BACKEND_ENV_B64 }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure deploy key
+        uses: webfactory/ssh-agent@v0.9.1
+        with:
+          ssh-private-key: ${{ secrets.PROD_SSH_PRIVATE_KEY }}
+
+      - name: Configure pinned SSH host keys
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$PROD_SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Create immutable backend release archive
+        run: |
+          tar \
+            --exclude='backend/.venv' \
+            --exclude='backend/__pycache__' \
+            --exclude='backend/app/__pycache__' \
+            --exclude='backend/.pytest_cache' \
+            -czf "$RUNNER_TEMP/industrial-sre-agent-${GITHUB_SHA}.tgz" \
+            backend docker-compose.yml docker-compose.prod.yml
+          sha256sum "$RUNNER_TEMP/industrial-sre-agent-${GITHUB_SHA}.tgz" > "$RUNNER_TEMP/industrial-sre-agent-${GITHUB_SHA}.tgz.sha256"
+          umask 077
+          printf '%s' "$PROD_BACKEND_ENV_B64" | base64 --decode > "$RUNNER_TEMP/.env.production"
+          test -s "$RUNNER_TEMP/.env.production"
+
+      - name: Transfer release and production environment
+        run: |
+          ssh -p "$PROD_SSH_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes "$PROD_SSH_USER@$PROD_SSH_HOST" \
+            "install -d -m 700 '$PROD_DEPLOY_PATH/incoming' '$PROD_DEPLOY_PATH/releases'"
+          scp -P "$PROD_SSH_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            "$RUNNER_TEMP/industrial-sre-agent-${GITHUB_SHA}.tgz" \
+            "$RUNNER_TEMP/industrial-sre-agent-${GITHUB_SHA}.tgz.sha256" \
+            "$RUNNER_TEMP/.env.production" \
+            "$PROD_SSH_USER@$PROD_SSH_HOST:$PROD_DEPLOY_PATH/incoming/"
+
+      - name: Verify, deploy, health-check, and prune
+        run: |
+          ssh -p "$PROD_SSH_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes "$PROD_SSH_USER@$PROD_SSH_HOST" \
+            bash -s -- "$PROD_DEPLOY_PATH" "$GITHUB_SHA" <<'REMOTE'
+          set -euo pipefail
+          deploy_path="$1"
+          release_id="$2"
+          incoming="$deploy_path/incoming"
+          release_path="$deploy_path/releases/$release_id"
+
+          cd "$incoming"
+          sha256sum -c "industrial-sre-agent-$release_id.tgz.sha256"
+          rm -rf "$release_path"
+          install -d -m 750 "$release_path"
+          tar -xzf "industrial-sre-agent-$release_id.tgz" -C "$release_path"
+          install -m 600 ".env.production" "$release_path/.env.production"
+
+          cd "$release_path"
+          export COMPOSE_PROJECT_NAME=industrial-sre-agent
+          docker compose --env-file .env.production -f docker-compose.yml -f docker-compose.prod.yml up --build --detach --remove-orphans
+
+          api_container="$(docker compose --env-file .env.production -f docker-compose.yml -f docker-compose.prod.yml ps -q api)"
+          test -n "$api_container"
+          for attempt in $(seq 1 24); do
+            health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}starting{{end}}' "$api_container")"
+            if [ "$health" = "healthy" ]; then
+              curl --fail --silent --show-error --max-time 3 http://127.0.0.1:8000/health
+              docker image prune --force
+              exit 0
+            fi
+            sleep 5
+          done
+          docker compose --env-file .env.production -f docker-compose.yml -f docker-compose.prod.yml ps
+          docker logs "$api_container" --tail 200
+          exit 1
+          REMOTE
