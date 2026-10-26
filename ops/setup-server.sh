@@ -25,7 +25,7 @@ DOMAIN="$1"
 CERTBOT_EMAIL="$2"
 DEPLOY_USER="$3"
 
-if [[ ! "$DOMAIN" =~ ^([A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,}$ ]]; then
+if [[ ! "$DOMAIN" =~ ^([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,}$ ]]; then
   printf 'The API domain must be a valid fully qualified domain name.\n' >&2
   exit 2
 fi
