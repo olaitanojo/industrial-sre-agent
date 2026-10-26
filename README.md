@@ -17,6 +17,28 @@ It is designed as a **control-plane and decision-support system**. It does not d
 - Validate remediation patches inside a short-lived Docker container with networking disabled, a read-only root filesystem, dropped Linux capabilities, resource limits, and captured stdout/stderr.
 - Stream telemetry, graph transitions, agent reasoning records, incident completion, and sandbox logs over WebSockets.
 - Present a Next.js dashboard with live metrics, a graph execution matrix, incident status, sandbox output, and a protected **Trigger Crisis** action.
+## FDE and cyber-physical positioning
+
+This project demonstrates the core shape of a forward-deployed reliability platform for industrial environments:
+
+- **Petroleum and process context:** vibration, flow, temperature, and pressure are representative measurements for pumps, compressors, heaters, pipelines, and process units.
+- **Infrastructure context:** the platform treats telemetry anomalies as operational incidents, produces an auditable mitigation plan, validates it in a constrained execution environment, and leaves real production changes behind a human approval boundary.
+- **Scaling context:** TimescaleDB provides time-series storage, Redis supports control-plane expansion, Docker Compose packages the services, and the Vercel/Linux split separates the user interface from the privileged sandbox host.
+- **Workflow context:** LangGraph models specialized roles for detection, analysis, mitigation, verification, and final recommendation. The current implementation is deterministic and role-structured; a future integration can replace individual nodes with independently prompted LLM agents and domain-specific tools when true multi-model or multi-agent autonomy is required.
+
+## Industries and example operators
+
+The architecture is applicable wherever a physical asset fleet emits continuous telemetry and remediation must be safe, reviewable, and operationally traceable. The companies below are examples of potential users, **not customers, partners, or endorsements**.
+
+| Industry | Example operational use | Representative operators and companies |
+| --- | --- | --- |
+| Upstream oil and gas | Artificial-lift pump health, compressor vibration, wellsite pressure anomalies | SLB, Halliburton, Baker Hughes, Chevron, ExxonMobil, Shell, Saudi Aramco |
+| Refining and petrochemicals | Crude-unit pump degradation, heater excursions, compressor surge precursors, utility-system reliability | Phillips 66, Valero, bp, Shell, Dow, BASF, SABIC |
+| LNG and midstream | Pipeline throughput loss, gas-compression reliability, cryogenic process alarms | Cheniere, Williams, Kinder Morgan, Enbridge, Equinor, QatarEnergy |
+| Power generation and utilities | Turbine auxiliary systems, boiler feedwater pumps, transformer thermal alarms, grid-support assets | NextEra Energy, Duke Energy, National Grid, EDF, Siemens Energy, GE Vernova |
+| Mining and metals | Mill and slurry-pump reliability, conveyor and crusher vibration, plant water systems | BHP, Rio Tinto, Anglo American, Freeport-McMoRan, Vale |
+| Water, wastewater, and chemicals | Treatment-train pumps, dosing skids, filtration systems, pressure and flow excursions | Veolia, Suez, Xylem, Ecolab, Air Liquide |
+| Manufacturing and industrial automation | Motor, compressor, robotic-cell, and utility telemetry with controlled maintenance recommendations | Siemens, Schneider Electric, Honeywell, ABB, Rockwell Automation |
 
 ## System architecture
 
