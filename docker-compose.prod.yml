@@ -62,7 +62,10 @@ services:
       start_period: 30s
     networks:
       - control_plane
+      - ingress
 
 networks:
   control_plane:
     internal: true
+  ingress:
+    driver: bridge
