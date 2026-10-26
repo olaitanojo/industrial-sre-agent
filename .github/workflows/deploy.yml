@@ -92,7 +92,10 @@ jobs:
             --exclude='backend/.pytest_cache' \
             -czf "$RUNNER_TEMP/industrial-sre-agent-${GITHUB_SHA}.tgz" \
             backend docker-compose.yml docker-compose.prod.yml
-          sha256sum "$RUNNER_TEMP/industrial-sre-agent-${GITHUB_SHA}.tgz" > "$RUNNER_TEMP/industrial-sre-agent-${GITHUB_SHA}.tgz.sha256"
+          (
+            cd "$RUNNER_TEMP"
+            sha256sum "industrial-sre-agent-${GITHUB_SHA}.tgz" > "industrial-sre-agent-${GITHUB_SHA}.tgz.sha256"
+          )
           umask 077
           printf '%s' "$PROD_BACKEND_ENV_B64" | base64 --decode > "$RUNNER_TEMP/.env.production"
           test -s "$RUNNER_TEMP/.env.production"
