@@ -94,7 +94,12 @@ Signed-By: /etc/apt/keyrings/docker.asc
 EOF
 apt-get update
 apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+install -d -m 0755 /etc/docker
+cat > /etc/docker/daemon.json <<'EOF'
+{"dns":["1.1.1.1","8.8.8.8"]}
+EOF
 systemctl enable --now docker
+systemctl restart docker
 systemctl is-active --quiet docker
 docker compose version
 
@@ -125,7 +130,8 @@ set -Eeuo pipefail
 for binary in iptables ip6tables; do
   command -v "\$binary" >/dev/null 2>&1 || continue
   "\$binary" -N DOCKER-USER 2>/dev/null || true
-  "\$binary" -C DOCKER-USER -i "${PUBLIC_INTERFACE}" -j DROP 2>/dev/null || "\$binary" -I DOCKER-USER 1 -i "${PUBLIC_INTERFACE}" -j DROP
+  "\$binary" -C DOCKER-USER -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT 2>/dev/null || "\$binary" -I DOCKER-USER 1 -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+  "\$binary" -C DOCKER-USER -i "${PUBLIC_INTERFACE}" -j DROP 2>/dev/null || "\$binary" -I DOCKER-USER 2 -i "${PUBLIC_INTERFACE}" -j DROP
 done
 EOF
 chmod 0750 /usr/local/sbin/industrial-sre-docker-firewall
